@@ -27,6 +27,16 @@ Short operating guides to embed ProcureIQ into weekly/monthly rhythms.
 
 ---
 
+## Playbook B2 — PVM Finance narrative (30 min)
+
+1. Open **PVM Variance** → read enterprise price / volume / mix bridge.
+2. Drill top categories where `|price_effect|` dominates (commercial problem) vs volume (demand) vs mix (assortment).
+3. Align story with Finance before category operating review — same MoM spend Δ, partitioned levers.
+
+**Success metric:** Category leads cite PVM levers in monthly review without analyst rework.
+
+---
+
 ## Playbook C — Should-cost challenge (Strategic Sourcing)
 
 1. Sort categories by `should_cost_gap`.

@@ -47,11 +47,12 @@ Use ProcureIQ as the **proof artifact**. Pair it with real career STAR stories.
 
 1. **Architecture slide** (30s) — multi-source → medallion → products  
 2. **Executive metrics** (90s) — spend, compliance, leakage, maverick  
-3. **Spend cube treemap** (90s) — hierarchy + leakage color  
-4. **Opportunity stack** (90s) — playbook-linked $  
-5. **Supplier risk scatter** (60s) — commercial + ops risk  
-6. **Ask ProcureIQ** (90s) — “Where are the biggest savings opportunities?”  
-7. **Close** (30s) — “This is how I’d run the function: governed infrastructure, decision products, AI-ready semantic layer.”
+3. **Spend cube treemap** (60s) — hierarchy + leakage color  
+4. **PVM bridge** (60s) — price vs volume vs mix for Finance narrative  
+5. **Opportunity stack** (60s) — playbook-linked $  
+6. **Supplier risk scatter** (45s) — commercial + ops risk  
+7. **Ask ProcureIQ** (60s) — “Where are the biggest savings opportunities?”  
+8. **Close** (30s) — “This is how I’d run the function: governed infrastructure, decision products, AI-ready semantic layer.”
 
 ## Resume bullet (adapt)
 

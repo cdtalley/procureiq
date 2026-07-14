@@ -29,6 +29,7 @@ class QueryResult:
 
 INTENT_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("opportunity", re.compile(r"opportunity|where.*sav(e|ings)|cost reduction|biggest savings", re.I)),
+    ("pvm", re.compile(r"\bpvm\b|price.?volume.?mix|volume effect|mix effect|why.*spend.*(up|down|change)", re.I)),
     ("total_spend", re.compile(r"total spend|how much.*(spend|spent)|overall spend", re.I)),
     ("maverick", re.compile(r"maverick|off[- ]?po|non[- ]?po", re.I)),
     ("compliance", re.compile(r"compliance|on[- ]?contract|contract coverage", re.I)),
@@ -110,6 +111,14 @@ SQL_TEMPLATES = {
         from analytics.opportunity
         order by opportunity_usd desc
     """,
+    "pvm": """
+        select
+            round(sum(price_effect), 2) as price_effect,
+            round(sum(volume_effect), 2) as volume_effect,
+            round(sum(mix_effect), 2) as mix_effect,
+            round(sum(spend_change), 2) as spend_change
+        from analytics.pvm_latest_summary
+    """,
 }
 
 
@@ -171,6 +180,12 @@ def _narrate(intent: str, rows: list[dict]) -> str:
             f"Realized savings ${r0['savings_realized']:,.0f}; "
             f"rate leakage headwind ${r0['rate_leakage_offset']:,.0f}."
         )
+    if intent == "pvm":
+        return (
+            f"Latest MoM spend change ${r0['spend_change']:,.0f} driven by "
+            f"price ${r0['price_effect']:,.0f}, volume ${r0['volume_effect']:,.0f}, "
+            f"mix ${r0['mix_effect']:,.0f}."
+        )
     return str(r0)
 
 
@@ -179,6 +194,7 @@ DEMO_QUESTIONS = [
     "Where is rate leakage highest?",
     "Show maverick spend",
     "What is contract compliance?",
+    "Explain price volume mix",
     "Which suppliers are high risk?",
     "Where are the biggest savings opportunities?",
 ]

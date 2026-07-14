@@ -23,6 +23,9 @@
 | `should_cost_gap` | `(actual - should_cost) × qty` |
 | `savings_realized` | vs baseline price (Finance-aligned demo) |
 | `tco_amount` | Invoice + freight + quality + payment-terms cost |
+| `price_effect` (PVM) | `(P1 − P0) × Q1` — rate-driven MoM spend change |
+| `volume_effect` (PVM) | `P0 × (Q1 − Q0)` — quantity-driven MoM spend change |
+| `mix_effect` (PVM) | Residual after price + volume vs total spend Δ |
 
 ## Risk
 

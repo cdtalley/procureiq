@@ -5,7 +5,7 @@
 **In one demo you’ll see:**
 - Multi-system spend integration → governed lakehouse
 - Spend cube with Direct/Indirect hierarchies
-- Rate leakage, should-cost gap, TCO, finance budget variance
+- PVM (price–volume–mix), rate leakage, should-cost gap, TCO, finance budget variance
 - Supplier risk + anomaly detection
 - Semantic self-serve Q&A (AI-ready)
 

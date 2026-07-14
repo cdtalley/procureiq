@@ -57,8 +57,8 @@ def money(x: float) -> str:
 def main() -> None:
     st.title("ProcureIQ")
     st.caption(
-        "Procurement analytics data product - spend cube · compliance · should-cost · "
-        "TCO · supplier risk · semantic self-serve"
+        "Procurement analytics data product — spend cube · PVM · compliance · "
+        "should-cost · TCO · supplier risk · semantic self-serve"
     )
 
     if not WAREHOUSE_DB.exists():
@@ -92,10 +92,11 @@ def main() -> None:
     c5.metric("Maverick Spend", money(maverick))
     c6.metric("Savings Realized", money(savings))
 
-    tab_overview, tab_cube, tab_leakage, tab_suppliers, tab_finance, tab_ai = st.tabs(
+    tab_overview, tab_cube, tab_pvm, tab_leakage, tab_suppliers, tab_finance, tab_ai = st.tabs(
         [
             "Executive Trend",
             "Spend Cube",
+            "PVM Variance",
             "Leakage & TCO",
             "Supplier Risk",
             "Finance Alignment",
@@ -153,6 +154,83 @@ def main() -> None:
                 ),
                 use_container_width=True,
                 height=480,
+            )
+
+    with tab_pvm:
+        st.caption(
+            "Price–Volume–Mix decomposition of MoM spend change — Finance / category "
+            "narrative for what drove Direct vs Indirect movement."
+        )
+        pvm = q(
+            """
+            select spend_type, category_l3, spend, spend_change,
+                   price_effect, volume_effect, mix_effect
+            from analytics.pvm_latest_summary
+            order by abs(spend_change) desc
+            """
+        )
+        if pvm.empty:
+            st.warning("PVM mart empty — run `python -m src.analytics.variance`.")
+        else:
+            totals = {
+                "price_effect": float(pvm["price_effect"].sum()),
+                "volume_effect": float(pvm["volume_effect"].sum()),
+                "mix_effect": float(pvm["mix_effect"].sum()),
+            }
+            p1, p2, p3, p4 = st.columns(4)
+            p1.metric("Price (rate) effect", money(totals["price_effect"]))
+            p2.metric("Volume effect", money(totals["volume_effect"]))
+            p3.metric("Mix effect", money(totals["mix_effect"]))
+            p4.metric("Net MoM spend Δ", money(float(pvm["spend_change"].sum())))
+
+            water = pd.DataFrame(
+                {
+                    "component": ["Price effect", "Volume effect", "Mix effect"],
+                    "usd": [
+                        totals["price_effect"],
+                        totals["volume_effect"],
+                        totals["mix_effect"],
+                    ],
+                }
+            )
+            fig = px.bar(
+                water,
+                x="component",
+                y="usd",
+                text="usd",
+                title="Enterprise PVM Bridge (latest month vs prior)",
+                labels={"usd": "USD", "component": "Lever"},
+                color="component",
+                color_discrete_sequence=["#c45c26", "#2f5d50", "#3d5a80"],
+            )
+            fig.update_traces(texttemplate="%{text:.2s}", textposition="outside")
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+
+            fig2 = px.bar(
+                pvm.head(15),
+                x="category_l3",
+                y=["price_effect", "volume_effect", "mix_effect"],
+                barmode="relative",
+                title="Top Categories — Price / Volume / Mix Contribution",
+                labels={"value": "USD", "category_l3": "Category", "variable": "Effect"},
+                color_discrete_map={
+                    "price_effect": "#c45c26",
+                    "volume_effect": "#2f5d50",
+                    "mix_effect": "#3d5a80",
+                },
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+            st.dataframe(
+                pvm.assign(
+                    spend=lambda d: d["spend"].map(money),
+                    spend_change=lambda d: d["spend_change"].map(money),
+                    price_effect=lambda d: d["price_effect"].map(money),
+                    volume_effect=lambda d: d["volume_effect"].map(money),
+                    mix_effect=lambda d: d["mix_effect"].map(money),
+                ),
+                use_container_width=True,
+                height=400,
             )
 
     with tab_leakage:
@@ -283,6 +361,7 @@ def main() -> None:
             "What is our total spend?",
             "Show maverick spend",
             "Where is rate leakage highest?",
+            "Explain price volume mix",
             "Which suppliers are high risk?",
             "Where are the biggest savings opportunities?",
         ]
