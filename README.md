@@ -1,146 +1,155 @@
 # ProcureIQ
 
-**Procurement analytics platform · data infrastructure · decision products**
+**AI-ready procurement analytics platform** — data infrastructure, spend products, and a semantic layer that BI tools and LLM agents share.
 
-Portfolio build for the **Procurement Analytics, Data Infrastructure & Data Products Manager** role: a hands-on, product-owned lakehouse that turns Direct/Indirect spend into governed cubes, finance-aligned variance, leakage/should-cost/TCO products, and an AI-ready semantic layer.
+Published repo: [github.com/cdtalley/procureiq](https://github.com/cdtalley/procureiq)
+
+Built for the **Procurement Analytics, Data Infrastructure & Data Products Manager** profile: hands-on builder with a product mindset — cubes, leakage/TCO/PVM, finance-aligned narratives, offshore-ready ETL contracts, and an AI-ready semantic foundation.
 
 ```
-CSV land (PO · Invoice · Contract · MDM · GL · Should-cost)
-        ↓  bronze → silver (DQ) → gold (star + marts)
-        ↓  analytics (PVM · leakage · TCO · opportunity)
-        ↓  ML (supplier risk · anomaly) + semantic Q&A
-        ↓  Streamlit decision product  ↔  Fabric / Power BI twin path
+Synthetic ERP extracts
+        ↓  etl/seed + DQ gates
+ PostgreSQL star schema (supplier · category · contract · spend)
+        ↓  semantic/* SQL views  ←── single contract
+        ├──────────────────────────┤
+   FastAPI / Power BI twin      LangGraph agent (NL → SQL)
+        ↓
+   Streamlit decision product
 ```
 
 ---
 
-## Why this exists (role fit)
+## Why ProcureIQ (not a notebook dump)
 
-This is not a notebook dump. It is how I would run the function:
-
-| JD responsibility | What ProcureIQ proves |
+| Capability | Implementation |
 |---|---|
-| **Data infrastructure & architecture** | End-to-end medallion pipeline; dimensional spend grain; YAML orchestration contract for dotted-line delivery |
-| **Analytical cubes** | Supplier × category × contract × volume × rate × spend hierarchies (`gold.spend_cube`, category/supplier marts) |
-| **Single source of truth** | POs, invoices, contracts, finance actuals, should-cost joined into `gold.fact_spend` |
-| **Master data governance** | Supplier completeness, category taxonomy, duplicate flags in `silver.data_quality_results` |
-| **Spend / financial / should-cost** | PVM (price–volume–mix), rate leakage, should-cost gap, TCO, budget/forecast/actual mart |
-| **Dashboards & self-serve** | Executive Streamlit product + playbooks; semantic NL → governed SQL (LLM-ready) |
-| **Offshore / platform partnership** | `configs/pipeline.yaml` as the build contract; design ownership retained locally |
-| **Product ownership & enablement** | Roadmap, persona use cases, category playbooks for operating rhythms |
-| **Future-ready / AI** | `configs/semantic_layer.yaml` + Isolation Forest anomalies + composite supplier risk |
+| Spend cubes | `semantic.v_spend_cube` — supplier × category × period |
+| Price variance / leakage | `semantic.v_price_variance` — flagged when variance **> 5%** |
+| TCO | `semantic.v_tco_by_supplier` — spend + risk/quality + switching |
+| Volume / rate / mix | `semantic.v_pvm_monthly` |
+| Maverick spend | `semantic.v_maverick_spend` — outside approved contracts |
+| AI-ready foundation | Agent queries **semantic views only**; SQL returned for audit |
+| Production hardening | API key auth, structured JSON logs, ETL DQ checks |
 
-**Stack (portable):** Python · DuckDB · SQL star schema · scikit-learn · Streamlit/Plotly · YAML semantic layer  
-**Enterprise landing path:** Microsoft Fabric / Power BI semantic model, Snowflake, Databricks, AWS analytics.
+The semantic layer **decouples** dashboards from the AI agent: both consume the same governed views. The agent never free-SQL against raw `fact_*` / `dim_*` tables.
+
+---
+
+## Stack
+
+Python · FastAPI · PostgreSQL · SQLAlchemy · LangGraph · Streamlit · pandas · Docker
 
 ---
 
 ## Quick start
 
+### Option A — Docker Compose (API + DB + dashboard)
+
 ```bash
-# from repo root
+cp .env.example .env
+docker compose up --build
+```
+
+- API: http://localhost:8000/docs  
+- Dashboard: http://localhost:8501  
+- Seed inside API container (first time):
+
+```bash
+docker compose exec api python -m etl.seed
+```
+
+### Option B — Local (recommended for iteration)
+
+```bash
+cp .env.example .env
 python -m venv .venv
 .\.venv\Scripts\activate          # Windows
-# source .venv/bin/activate       # macOS/Linux
-
 pip install -r requirements.txt
-python run_all.py                 # generate → ETL → analytics → ML
-streamlit run src/dashboard/app.py
+
+docker compose up -d db           # Postgres only
+python -m etl.seed                # create tables, load data, apply views, run DQ
+uvicorn api.main:app --reload --port 8000
+streamlit run dashboard/app.py
 ```
 
-Dashboard opens at **http://localhost:8501**.
-
-Optional: `python run_all.py --skip-generate` to rebuild on existing `data/raw`.  
-Optional: `python run_all.py --demo-qa` to print semantic Q&A answers in the terminal.  
-Tests: `pytest` (requires warehouse built).
+Default API key: `procureiq-dev-key` (header `X-API-Key`).  
+Optional: set `OPENAI_API_KEY` for LLM intent routing via LangGraph; without it, a deterministic router runs (demo always works).
 
 ---
 
-## Product surface (dashboard tabs)
-
-| Tab | Decision job |
-|---|---|
-| **Executive Trend** | Direct vs Indirect pulse; leakage / should-cost / savings trajectory |
-| **Spend Cube** | L1→L2→L3 hierarchy treemap colored by rate leakage |
-| **PVM Variance** | Price vs volume vs mix effects (Finance narrative for MoM spend change) |
-| **Leakage & TCO** | Opportunity stack + TCO uplift + supplier×category leakage |
-| **Supplier Risk** | Risk vs spend concentration; Isolation Forest anomalies |
-| **Finance Alignment** | Budget / forecast / actual variance by BU |
-| **Ask ProcureIQ** | Semantic self-serve — NL intent → governed SQL over marts |
-
-Category operating guides: [`docs/PLAYBOOKS.md`](docs/PLAYBOOKS.md).
-
----
-
-## Repository map
+## Repository layout
 
 ```
-configs/
-  pipeline.yaml           # ETL/ELT contract (sources, layers, DQ ownership)
-  semantic_layer.yaml     # Metrics & entities for BI + LLM tools
-sql/models/gold_views.sql # Additional gold view patterns
-src/
-  generate_data.py        # Synthetic enterprise sources (safe for portfolio)
-  pipelines/              # bronze → silver → gold
-  analytics/              # should-cost, leakage/TCO/opportunity, PVM
-  ml/                     # supplier risk, anomalies, semantic_qa
-  dashboard/app.py        # Analytics product UI
-docs/
-  ARCHITECTURE.md         # Medallion + dimensional design
-  DATA_DICTIONARY.md      # Consumer definitions
-  PRODUCT_ROADMAP.md      # Product owner prioritization
-  PLAYBOOKS.md            # Enablement for category teams
-  INTERVIEW_NARRATIVE.md  # STAR mapping + 8-min demo script
-  ONE_PAGER.md            # Hiring-manager skim
-data/
-  raw/                    # Source extracts
-  warehouse/procureiq.duckdb
-  exports/                # CSV/Parquet handoffs for BI tools
+etl/                 seed + data quality gates
+api/                 FastAPI app, SQLAlchemy models, auth, logging
+semantic/            SQL views (the BI ↔ AI contract) + apply helper
+agent/               LangGraph / deterministic NL→SQL over semantic views
+dashboard/           Streamlit product UI
+docker-compose.yml   Postgres + API + dashboard
+docs/                Architecture & interview narrative
 ```
 
 ---
 
-## Architecture (short)
+## Data model (star schema)
 
-**Fact grain:** one row per invoice line in `gold.fact_spend`, conformed to supplier, category, contract, cost center, and calendar dimensions.
+- **dim_supplier** — name, primary category family, risk tier, region  
+- **dim_category** — hierarchy + Direct/Indirect  
+- **dim_contract** — negotiated rate, term window, supplier link  
+- **fact_spend** — PO/invoice grain with negotiated vs actual rate, quantity, cost center, maverick flag  
 
-**Measures that matter to Procurement + Finance:** invoice spend, on-contract / maverick flags, price variance (rate leakage), should-cost gap, savings vs baseline, TCO, PVM price/volume/mix effects, budget variance.
-
-**Governance:** silver DQ gates block null master keys, validate category hierarchy, and queue potential supplier duplicates.
-
-**AI-ready:** semantic metrics defined once; `src/ml/semantic_qa.py` routes NL → intent → SQL. Swap the router for an LLM tool-caller without changing marts.
-
-Full detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Seed defaults: **50** suppliers · **10** categories · **220** contracts · **5,500+** transactions over **18** months, with deliberate >5% rate leakage and maverick POs.
 
 ---
 
-## Demo script (8 minutes)
+## API surface
 
-1. Architecture — multi-source → medallion → products  
-2. Executive metrics — spend, compliance, leakage, maverick  
-3. Spend cube treemap — hierarchy + leakage color  
-4. **PVM** — why MoM spend moved (rate vs volume vs mix)  
-5. Opportunity stack — playbook-linked dollars  
-6. Supplier risk scatter — commercial + ops concentration  
-7. Ask ProcureIQ — “Where are the biggest savings opportunities?”  
-8. Close — governed infrastructure, decision products, AI-ready semantic layer
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/health` | Liveness |
+| GET | `/metrics/executive` | KPI cards |
+| GET | `/analytics/spend-cube` | Cube rows |
+| GET | `/analytics/price-variance` | Leakage |
+| GET | `/analytics/pvm` | Price/volume/mix |
+| GET | `/analytics/tco` | Supplier TCO |
+| GET | `/dq` | Latest ETL quality results |
+| POST | `/agent/ask` | `{ "question": "..." }` → answer + SQL + rows |
 
-Longer interview map: [`docs/INTERVIEW_NARRATIVE.md`](docs/INTERVIEW_NARRATIVE.md).
-
----
-
-## Resume / LinkedIn bullet (adapt)
-
-> Built **ProcureIQ**, an end-to-end procurement analytics platform: medallion DuckDB lakehouse, dimensional spend cube, PVM / should-cost / TCO / leakage marts, finance budget alignment, supplier risk & anomaly models, and a governed semantic self-serve layer for Direct/Indirect spend decisioning — transferable to Microsoft Fabric / Power BI.
+All analytics/agent routes require header: `X-API-Key: <key>`.
 
 ---
 
-## Design principles
+## Dashboard tabs
 
-1. One version of spend before any dashboard.  
-2. Every gold/analytics table answers a named use case.  
-3. Metrics defined once (YAML) for BI and LLM.  
-4. Cloud-portable SQL — local DuckDB today; Fabric Warehouse / Snowflake tomorrow.  
-5. Product > project — roadmap, playbooks, and adoption rhythms included.
+1. **Executive Summary** — Direct/Indirect trend, leakage, PVM bridge, TCO  
+2. **Category Drill-down** — spend cube treemap + filters  
+3. **Price Variance / Leakage** — >5% flags + DQ panel  
+4. **Ask ProcureIQ** — chat wired to the semantic agent  
 
-Synthetic data only. Production would add RLS by BU, PII vaulting, and audited semantic prompts.
+---
+
+## Architecture note (semantic as contract)
+
+```
+BI / Streamlit  ──SELECT──▶  semantic.v_*  ◀──tool──  LangGraph agent
+                              ▲
+                     ETL publishes & DQ gates
+                              ▲
+                     dim_* + fact_spend
+```
+
+If a metric is not in the semantic layer, neither BI nor AI can invent it. That is the “AI-ready data structure” design: **governed products first, LLM second**.
+
+---
+
+## Role-fit resume bullet
+
+> Built **ProcureIQ**, an AI-ready procurement analytics platform: PostgreSQL star schema, governed semantic spend cube (leakage, TCO, PVM, maverick), FastAPI data products with API-key auth & DQ gates, Streamlit executive UI, and a LangGraph agent that answers natural-language questions strictly against semantic views with auditable SQL.
+
+---
+
+## Tests
+
+```bash
+pytest -q
+```
