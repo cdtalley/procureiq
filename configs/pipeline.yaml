@@ -1,0 +1,53 @@
+project:
+  name: ProcureIQ
+  owner: Procurement Analytics
+  environment: portfolio_demo
+
+paths:
+  raw: data/raw
+  warehouse: data/warehouse/procureiq.duckdb
+  exports: data/exports
+
+sources:
+  - name: erp_purchase_orders
+    system: SAP_S4
+    file: purchase_orders.csv
+  - name: ap_invoices
+    system: Oracle_AP
+    file: invoices.csv
+  - name: contract_mgmt
+    system: Coupa_CLM
+    file: contracts.csv
+  - name: supplier_master
+    system: MDM
+    file: suppliers.csv
+  - name: category_taxonomy
+    system: CategoryMgmt
+    file: categories.csv
+  - name: gl_actuals
+    system: Oracle_GL
+    file: gl_actuals.csv
+  - name: should_cost_models
+    system: Engineering_Finance
+    file: should_cost.csv
+
+quality_rules:
+  - name: supplier_master_completeness
+    table: silver_suppliers
+    check: "supplier_id is not null and supplier_name is not null"
+  - name: invoice_po_referential
+    table: silver_invoices
+    check: "po_id is not null or maverick_flag = true"
+  - name: category_hierarchy_valid
+    table: silver_categories
+    check: "category_l1 in ('Direct','Indirect')"
+  - name: negative_qty_block
+    table: silver_po_lines
+    check: "qty > 0"
+  - name: contract_rate_positive
+    table: silver_contracts
+    check: "unit_price > 0"
+
+orchestration:
+  schedule: daily
+  layers: [bronze, silver, gold, analytics, ml]

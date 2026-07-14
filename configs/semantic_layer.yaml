@@ -1,0 +1,102 @@
+# AI-ready semantic layer for procurement analytics products.
+# Mirrors Fabric / dbt metrics layer patterns for LLM tool use & self-serve BI.
+
+version: "1.0"
+domain: procurement
+warehouse: duckdb
+database: procureiq.duckdb
+
+entities:
+  supplier:
+    primary_key: supplier_id
+    table: dim_supplier
+    description: Master supplier record with risk, tier, and locality attributes.
+  category:
+    primary_key: category_id
+    table: dim_category
+    description: Category hierarchy L1 (direct/indirect) → L2 → L3 UNSPSC-style.
+  contract:
+    primary_key: contract_id
+    table: dim_contract
+    description: Negotiated agreements with rate cards and compliance windows.
+  cost_center:
+    primary_key: cost_center_id
+    table: dim_cost_center
+    description: Finance cost centers mapped to P&L owners.
+  calendar:
+    primary_key: date_key
+    table: dim_calendar
+    description: Fiscal calendar for monthly/quarterly aggregation.
+
+facts:
+  spend:
+    table: fact_spend
+    grain: "one row per invoice line × PO line × period"
+    measures:
+      - name: invoice_amount
+        expr: sum(invoice_amount)
+        description: Actual paid/invoiced spend
+      - name: po_amount
+        expr: sum(po_amount)
+        description: Committed PO value
+      - name: contracted_amount
+        expr: sum(qty * contracted_unit_price)
+        description: Should-be spend at negotiated rate
+      - name: volume
+        expr: sum(qty)
+        description: Purchased quantity
+      - name: price_variance
+        expr: sum((actual_unit_price - contracted_unit_price) * qty)
+        description: Rate leakage vs contract
+      - name: savings_realized
+        expr: sum(savings_realized)
+        description: Negotiated savings vs baseline
+      - name: tco_amount
+        expr: sum(tco_amount)
+        description: Total cost of ownership including freight, quality, payment terms
+
+metrics:
+  - name: total_spend
+    type: simple
+    measure: invoice_amount
+    description: Enterprise invoice spend
+  - name: contract_compliance_rate
+    type: ratio
+    numerator: sum(case when on_contract then invoice_amount else 0 end)
+    denominator: sum(invoice_amount)
+    description: "Percent of spend against active contracts"
+  - name: maverick_spend_pct
+    type: ratio
+    numerator: sum(case when not on_contract then invoice_amount else 0 end)
+    denominator: sum(invoice_amount)
+    description: "Off-contract / maverick spend share"
+  - name: rate_leakage
+    type: simple
+    measure: price_variance
+    description: Paid above contracted rate
+  - name: should_cost_gap
+    type: derived
+    expr: sum(invoice_amount - should_cost_amount)
+    description: Gap vs engineering/finance should-cost model
+
+dimensions:
+  - supplier_name
+  - supplier_tier
+  - supplier_country
+  - category_l1
+  - category_l2
+  - category_l3
+  - contract_status
+  - spend_type  # Direct | Indirect
+  - cost_center
+  - business_unit
+  - fiscal_year
+  - fiscal_quarter
+  - fiscal_month
+
+llm_use_cases:
+  - natural_language_spend_query
+  - category_strategy_briefing
+  - supplier_negotiation_prep
+  - leakage_root_cause_explanation
+  - savings_pipeline_narrative
